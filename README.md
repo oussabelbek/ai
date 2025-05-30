@@ -10,3 +10,10 @@ au clavier et à la souris ainsi que les récompenses seront sauvegardées dans
 Ensuite relancez le script en mode **N** (nouvel apprentissage) ou **C** pour
 continuer un entraînement. Si un fichier `demo_data.npy` est présent, il sera
 chargé automatiquement pour initialiser la mémoire de l'agent.
+
+## Priorité des actions
+
+La fonction `get_player_action` vérifie les entrées dans l'ordre où elles sont
+écrites. Les touches du clavier sont donc examinées avant les mouvements de
+souris et le premier test concluant détermine l'action retournée. Une seule
+action est ainsi capturée par image, ce qui simplifie les entrées combinées.
