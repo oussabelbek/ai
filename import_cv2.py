@@ -232,6 +232,15 @@ class GameEnvironment:
     def jump(self):          print("DEBUG ACTION: Sauter"); press_key(0x20)
 
     def get_player_action(self, prev_mouse_pos):
+        """Détermine l'action du joueur en fonction des entrées actuelles.
+
+        Les conditions sont évaluées séquentiellement. Les touches du clavier
+        sont donc testées avant les mouvements de la souris : la première
+        condition vraie renvoie immédiatement l'action correspondante. Une seule
+        action est capturée par frame, ce qui simplifie les situations où
+        plusieurs entrées se produisent en même temps.
+        """
+
         if keyboard.is_pressed('w'): return 0
         if keyboard.is_pressed('s'): return 1
         if keyboard.is_pressed('a'): return 2
