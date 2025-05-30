@@ -298,6 +298,9 @@ class DemoRecorder:
         prev_frame = self.env.preprocess_frame(self.env.get_screen())
         prev_mouse = win32api.GetCursorPos()
         for _ in range(steps):
+            if keyboard.is_pressed('esc'):
+                print("Enregistrement arrêté par l'utilisateur.")
+                break
             act = self.env.get_player_action(prev_mouse)
             time.sleep(0.05)
             curr_frame_raw = self.env.get_screen()
