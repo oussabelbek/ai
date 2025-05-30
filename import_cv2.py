@@ -41,12 +41,16 @@ def right_click():
     win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
 
 class GameEnvironment:
-    def __init__(self):
-        self.screen_width = 1920 
-        self.screen_height = 1080 
+    def __init__(self, mouse_dx_threshold=15, mouse_dy_threshold=10):
+        self.screen_width = 1920
+        self.screen_height = 1080
         self.action_space = 12
         self.observation_space = (84, 84, 3)
         self.game_window = None
+
+        # Sensibilité pour la détection des mouvements de souris
+        self.mouse_dx_threshold = mouse_dx_threshold
+        self.mouse_dy_threshold = mouse_dy_threshold
         
         self.ai_player_name = "SPYMENDER" # REMPLACEZ PAR LE NOM DE VOTRE JOUEUR IA
         roi_left = 50; roi_top = 350; roi_width = 450; roi_height = 200 # EXEMPLE, À AJUSTER
@@ -241,10 +245,10 @@ class GameEnvironment:
         if win32api.GetKeyState(win32con.VK_RBUTTON) < 0: return 10
         if keyboard.is_pressed('space'): return 11
         curr=win32api.GetCursorPos();dx=curr[0]-prev_mouse_pos[0];dy=curr[1]-prev_mouse_pos[1]
-        if dx<-15: return 4
-        if dx>15:  return 5
-        if dy<-10: return 6
-        if dy>10:  return 7
+        if dx < -self.mouse_dx_threshold: return 4
+        if dx > self.mouse_dx_threshold:  return 5
+        if dy < -self.mouse_dy_threshold: return 6
+        if dy > self.mouse_dy_threshold:  return 7
         return None
 
 class DQNNetwork(nn.Module):
