@@ -229,7 +229,23 @@ class GameEnvironment:
     def shoot(self):         print("DEBUG ACTION: Tirer"); left_click()
     def reload(self):        print("DEBUG ACTION: Recharger"); press_key(0x52) 
     def aim(self):           print("DEBUG ACTION: Viser"); right_click()   
-    def jump(self):          print("DEBUG ACTION: Sauter"); press_key(0x20) 
+    def jump(self):          print("DEBUG ACTION: Sauter"); press_key(0x20)
+
+    def get_player_action(self, prev_mouse_pos):
+        if keyboard.is_pressed('w'): return 0
+        if keyboard.is_pressed('s'): return 1
+        if keyboard.is_pressed('a'): return 2
+        if keyboard.is_pressed('d'): return 3
+        if win32api.GetKeyState(win32con.VK_LBUTTON) < 0: return 8
+        if keyboard.is_pressed('r'): return 9
+        if win32api.GetKeyState(win32con.VK_RBUTTON) < 0: return 10
+        if keyboard.is_pressed('space'): return 11
+        curr=win32api.GetCursorPos();dx=curr[0]-prev_mouse_pos[0];dy=curr[1]-prev_mouse_pos[1]
+        if dx<-15: return 4
+        if dx>15:  return 5
+        if dy<-10: return 6
+        if dy>10:  return 7
+        return None
 
 class DQNNetwork(nn.Module):
     def __init__(self, input_c, h, w, n_actions):
@@ -246,6 +262,17 @@ class DQNAgent:
         self.target_net.load_state_dict(self.q_net.state_dict()); self.target_net.eval()
         self.optimizer=optim.Adam(self.q_net.parameters(),lr=lr); self.memory=deque(maxlen=10000)
         self.epsilon=1.0; self.epsilon_min=0.01; self.epsilon_decay_rate=epsilon_decay; self.gamma=gamma; self.batch_size=32
+    def load_demo_data(self,path):
+        if not os.path.exists(path):
+            return 0
+        try:
+            data=np.load(path,allow_pickle=True)
+        except Exception:
+            return 0
+        for tr in data:
+            self.memory.append(tuple(tr))
+        print(f"Démonstration chargée: {len(data)} transitions")
+        return len(data)
     def act(self,s):
         if random.random()<self.epsilon:return random.randrange(self.n_actions)
         with torch.no_grad():return self.q_net(torch.FloatTensor(s).unsqueeze(0).to(self.device)).argmax().item()
@@ -263,11 +290,35 @@ class DQNAgent:
     def update_target_network_periodically(self,ep,freq):
         if ep%freq==0 and ep>0:self.target_net.load_state_dict(self.q_net.state_dict());print(f"Réseau Cible MAJ ep {ep}.")
 
+class DemoRecorder:
+    def __init__(self, env):
+        self.env = env
+        self.records = []
+    def record(self, steps=1000, out_file="demo_data.npy"):
+        prev_frame = self.env.preprocess_frame(self.env.get_screen())
+        prev_mouse = win32api.GetCursorPos()
+        for _ in range(steps):
+            act = self.env.get_player_action(prev_mouse)
+            time.sleep(0.05)
+            curr_frame_raw = self.env.get_screen()
+            curr_frame = self.env.preprocess_frame(curr_frame_raw)
+            reward = self.env.get_reward((prev_frame*255).astype(np.uint8),(curr_frame*255).astype(np.uint8))
+            done = False
+            if act is not None:
+                self.records.append((prev_frame, act, reward, curr_frame, done))
+            prev_frame = curr_frame
+            prev_mouse = win32api.GetCursorPos()
+        np.save(out_file, np.array(self.records, dtype=object))
+        print(f"Démonstration enregistrée : {out_file} ({len(self.records)} transitions)")
+
 class CODTrainer:
     def __init__(self):
         self.env=GameEnvironment();h,w,c=self.env.observation_space
         self.agent=DQNAgent(c,h,w,self.env.action_space)
         self.stats={'episodes_completed':0,'best_episode_reward':-float('inf')}
+        demo_file="demo_data.npy"
+        if os.path.exists(demo_file):
+            self.agent.load_demo_data(demo_file)
     def train(self,num_total_eps=1000):
         print(f"Début entraînement pour {num_total_eps} épisodes...");init_ep=self.stats.get('episodes_completed',0)
         for ep in range(init_ep,num_total_eps):
@@ -318,7 +369,14 @@ class CODTrainer:
 
 if __name__=="__main__":
     print("=== IA Call of Duty Trainer (Win32 Input) ===");trainer=CODTrainer()
-    choice=input("Nouveau (N) ou Charger (C) ? [N/C]:").strip().upper()
+    choice=input("Nouveau (N), Charger (C) ou Demo (D) ? [N/C/D]:").strip().upper()
+    if choice=='D':
+        try:steps=int(input("Nombre d'etapes a enregistrer (1000 defaut):") or "1000")
+        except ValueError:steps=1000
+        recorder=DemoRecorder(trainer.env)
+        print("Debut de l'enregistrement dans 3s...");time.sleep(3)
+        recorder.record(steps)
+        sys.exit(0)
     if choice=='C':
         mf=input("Fichier modèle (vide=dernier):").strip()
         if not mf:
