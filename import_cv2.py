@@ -297,15 +297,21 @@ class DemoRecorder:
     def record(self, steps=1000, out_file="demo_data.npy"):
         prev_frame = self.env.preprocess_frame(self.env.get_screen())
         prev_mouse = win32api.GetCursorPos()
-        for _ in range(steps):
+        for step in range(steps):
             act = self.env.get_player_action(prev_mouse)
             time.sleep(0.05)
             curr_frame_raw = self.env.get_screen()
             curr_frame = self.env.preprocess_frame(curr_frame_raw)
             reward = self.env.get_reward((prev_frame*255).astype(np.uint8),(curr_frame*255).astype(np.uint8))
-            done = False
+            done = (reward < -20) or (step == steps - 1)
             if act is not None:
-                self.records.append((prev_frame, act, reward, curr_frame, done))
+                self.records.append((
+                    np.array(prev_frame, dtype=np.float32),
+                    act,
+                    reward,
+                    np.array(curr_frame, dtype=np.float32),
+                    done
+                ))
             prev_frame = curr_frame
             prev_mouse = win32api.GetCursorPos()
         np.save(out_file, np.array(self.records, dtype=object))
